@@ -2,12 +2,52 @@
 
 from prefect_anakin._version import __version__
 from prefect_anakin.credentials import AnakinCredentials
-from prefect_anakin.tasks import agentic_search, scrape_url, search
+from prefect_anakin.tasks import (
+    agentic_search,
+    ai_visibility_search,
+    ai_visibility_sources,
+    browser_task,
+    crawl,
+    map,
+    monitor_changes,
+    monitor_control,
+    monitor_create,
+    monitor_list,
+    scrape_url,
+    search,
+    session_delete,
+    session_list,
+    wire_build,
+    wire_catalog,
+    wire_discover,
+    wire_identities,
+    wire_login,
+    wire_read_action,
+    wire_write_action,
+)
 
 __all__ = [
     "AnakinCredentials",
     "agentic_search",
+    "ai_visibility_search",
+    "ai_visibility_sources",
+    "browser_task",
+    "crawl",
+    "map",
+    "monitor_changes",
+    "monitor_control",
+    "monitor_create",
+    "monitor_list",
     "scrape_url",
     "search",
+    "session_delete",
+    "session_list",
+    "wire_build",
+    "wire_catalog",
+    "wire_discover",
+    "wire_identities",
+    "wire_login",
+    "wire_read_action",
+    "wire_write_action",
     "__version__",
 ]
