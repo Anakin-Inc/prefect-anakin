@@ -23,6 +23,11 @@ requires-python = ">=3.10,<4.0"
 dependencies = [
     "prefect>=3.0.0,<4.0.0",
     "anakin-sdk>=0.1.0,<0.2.0",
+    # Used directly (not just transitively via anakin-sdk) by the tasks that
+    # cover endpoints anakin-sdk v0.1.0 doesn't wrap yet (Website Monitoring,
+    # AI Visibility, browser_task, Wire discovery/catalog/identities/login/
+    # build) — see prefect_anakin/_http.py. Same floor anakin-sdk pins.
+    "httpx>=0.27.0",
 ]
 
 [project.urls]

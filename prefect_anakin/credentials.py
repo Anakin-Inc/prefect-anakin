@@ -9,9 +9,12 @@ returns an authenticated client instance for tasks to use.
 
 from __future__ import annotations
 
+import httpx
 from anakin import Anakin
 from prefect.blocks.core import Block
 from pydantic import Field, SecretStr
+
+_DEFAULT_BASE_URL = "https://api.anakin.io/v1"
 
 
 class AnakinCredentials(Block):
@@ -72,3 +75,30 @@ class AnakinCredentials(Block):
         if self.base_url:
             kwargs["base_url"] = self.base_url
         return Anakin(**kwargs)  # type: ignore[arg-type]
+
+    def get_http_client(self) -> httpx.Client:
+        """Return a raw `httpx.Client` for Anakin endpoints `anakin-sdk` v0.1.0
+        doesn't wrap yet.
+
+        `anakin.Anakin` (see `get_client()`) covers scrape/map/crawl/search/
+        agentic_search/wire/sessions — confirmed by reading
+        `anakin-py/src/anakin/client.py` directly. Website Monitoring, AI
+        Visibility, `browser_task`, and the Wire discovery/catalog/identities/
+        login/build endpoints have no SDK wrapper yet, so `prefect_anakin`'s
+        tasks for those (see `prefect_anakin.tasks`) call the API directly
+        through the client this method returns — same base URL and
+        `X-API-Key` auth convention as `anakin.Anakin`'s internal HTTP client
+        (`anakin._http.HttpClient`), so behavior is consistent with the
+        SDK-backed tasks. Use as a context manager so the connection pool is
+        closed:
+
+        ```python
+        with anakin_credentials.get_http_client() as http_client:
+            ...
+        ```
+        """
+        return httpx.Client(
+            base_url=self.base_url or _DEFAULT_BASE_URL,
+            headers={"X-API-Key": self.api_key.get_secret_value()},
+            timeout=60.0,
+        )

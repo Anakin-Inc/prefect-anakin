@@ -36,3 +36,18 @@ def test_get_client_omits_base_url_when_unset() -> None:
     client = creds.get_client()
 
     assert client is not None
+
+
+def test_get_http_client_uses_default_base_url_and_api_key_header() -> None:
+    creds = AnakinCredentials(api_key="ask_test_dummy")
+
+    with creds.get_http_client() as http_client:
+        assert str(http_client.base_url) == "https://api.anakin.io/v1"
+        assert http_client.headers["x-api-key"] == "ask_test_dummy"
+
+
+def test_get_http_client_honors_base_url_override() -> None:
+    creds = AnakinCredentials(api_key="ask_test_dummy", base_url="https://staging.anakin.io/v1")
+
+    with creds.get_http_client() as http_client:
+        assert str(http_client.base_url) == "https://staging.anakin.io/v1"
