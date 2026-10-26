@@ -39,8 +39,10 @@ jobs:
       matrix:
         include:
           # Prefect 3.0 itself breaks on pydantic >= 2.10, unrelated to this package.
-          - { prefect: "3.0.*", python: "3.10", extra: "pydantic<2.10" }
-          - { prefect: "3.*", python: "3.10", extra: "" }
+          # Prefect <= 3.8 (the newest on Python 3.10) breaks on fastapi >= 0.155
+          # (Body(min_items=...) was removed), also unrelated to this package.
+          - { prefect: "3.0.*", python: "3.10", extra: '"pydantic<2.10" "fastapi<0.155"' }
+          - { prefect: "3.*", python: "3.10", extra: '"fastapi<0.155"' }
           - { prefect: "3.*", python: "3.13", extra: "" }
     steps:
       - uses: actions/checkout@v4
@@ -50,7 +52,7 @@ jobs:
       - name: Install
         run: |
           uv venv
-          uv pip install -e . --group test "prefect==${{ matrix.prefect }}" ${{ matrix.extra && format('"{0}"', matrix.extra) || '' }}
+          uv pip install -e . --group test "prefect==${{ matrix.prefect }}" ${{ matrix.extra }}
       - run: uv run --no-sync pytest
       - name: Block type registers via the prefect.collections entry point
         run: |
