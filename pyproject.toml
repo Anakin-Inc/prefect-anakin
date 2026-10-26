@@ -5,8 +5,10 @@ build-backend = "hatchling.build"
 [project]
 name = "prefect-anakin"
 version = "0.1.0"
-description = "Prefect tasks and a credentials Block for Anakin — web scraping, AI search, and agentic research"
+description = "Prefect tasks and a credentials Block for Anakin: scrape, crawl, search, Wire site actions, website monitors and AI browser tasks"
 license = { text = "Apache-2.0" }
+authors = [{ name = "Anakin", email = "support@anakin.io" }]
+keywords = ["prefect", "prefect-integration", "anakin", "web-scraping", "crawler", "web-data"]
 readme = "README.md"
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -17,34 +19,28 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Topic :: Internet :: WWW/HTTP :: Indexing/Search",
     "Topic :: System :: Distributed Computing",
 ]
 requires-python = ">=3.10,<4.0"
 dependencies = [
     "prefect>=3.0.0,<4.0.0",
-    "anakin-sdk>=0.1.0,<0.2.0",
-    # Used directly (not just transitively via anakin-sdk) by the tasks that
-    # cover endpoints anakin-sdk v0.1.0 doesn't wrap yet (Website Monitoring,
-    # AI Visibility, browser_task, Wire discovery/catalog/identities/login/
-    # build) — see prefect_anakin/_http.py. Same floor anakin-sdk pins.
+    "anakin-sdk>=0.2.0,<0.3.0",
+    # Only browser_task calls the API directly (POST /ai/evaluate isn't in
+    # anakin-sdk yet); same floor anakin-sdk pins.
     "httpx>=0.27.0",
 ]
 
 [project.urls]
 Homepage = "https://anakin.io"
-Documentation = "https://anakin.io/docs"
-Repository = "https://github.com/Anakin-Inc/anakin-prefect"
-Issues = "https://github.com/Anakin-Inc/anakin-prefect/issues"
+Documentation = "https://anakin.io/docs/integrations/workflow/prefect"
+Repository = "https://github.com/Anakin-Inc/prefect-anakin"
+Issues = "https://github.com/Anakin-Inc/prefect-anakin/issues"
+Changelog = "https://github.com/Anakin-Inc/prefect-anakin/blob/main/CHANGELOG.md"
 
-# Real Prefect discovery mechanism, confirmed against PrefectHQ/prefect's
-# current source (src/prefect/_internal/plugins/collections.py): at import
-# time, `prefect.plugins.load_prefect_collections()` calls
-# `importlib.metadata.entry_points(group="prefect.collections")` and loads
-# every entry point in that group. This is what makes an installed
-# collection package's Blocks locally discoverable (e.g. by
-# `prefect block register -m prefect_anakin`) — it is unrelated to, and
-# does not by itself get a package listed on docs.prefect.io's public
-# Integrations Catalog (see SUBMIT.md).
+# Prefect imports every package in this entry-point group at startup
+# (prefect.plugins.load_prefect_collections), which registers the
+# AnakinCredentials block type for `prefect block register -m prefect_anakin`.
 [project.entry-points."prefect.collections"]
 prefect_anakin = "prefect_anakin"
 
@@ -53,12 +49,30 @@ test = [
     "pytest>=8.0.0,<9.0.0",
     "pytest-mock>=3.10.0,<4.0.0",
 ]
-typing = [
+lint = [
+    "ruff>=0.6",
     "mypy>=1.10.0,<2.0.0",
 ]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "RUF"]
+ignore = ["RUF001", "RUF002", "RUF003"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["prefect_anakin"]
+known-third-party = ["anakin"]
 
 [tool.pytest.ini_options]
 addopts = "--strict-markers --strict-config"
 
 [tool.mypy]
 disallow_untyped_defs = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["prefect_anakin"]
+
+[tool.hatch.build.targets.sdist]
+exclude = ["/.github", "/SUBMIT.md"]

@@ -18,6 +18,7 @@ from prefect_anakin.tasks import (
     session_delete,
     session_list,
     wire_build,
+    wire_build_status,
     wire_catalog,
     wire_discover,
     wire_identities,
@@ -28,6 +29,7 @@ from prefect_anakin.tasks import (
 
 __all__ = [
     "AnakinCredentials",
+    "__version__",
     "agentic_search",
     "ai_visibility_search",
     "ai_visibility_sources",
@@ -43,11 +45,11 @@ __all__ = [
     "session_delete",
     "session_list",
     "wire_build",
+    "wire_build_status",
     "wire_catalog",
     "wire_discover",
     "wire_identities",
     "wire_login",
     "wire_read_action",
     "wire_write_action",
-    "__version__",
 ]

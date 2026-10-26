@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint and type check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: |
+          uv venv
+          uv pip install -e . --group test --group lint
+      - run: uv run --no-sync ruff check .
+      - run: uv run --no-sync ruff format --check .
+      - run: uv run --no-sync mypy prefect_anakin
+
+  test:
+    name: Prefect ${{ matrix.prefect }} / Python ${{ matrix.python }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Prefect 3.0 itself breaks on pydantic >= 2.10, unrelated to this package.
+          - { prefect: "3.0.*", python: "3.10", extra: "pydantic<2.10" }
+          - { prefect: "3.*", python: "3.10", extra: "" }
+          - { prefect: "3.*", python: "3.13", extra: "" }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install
+        run: |
+          uv venv
+          uv pip install -e . --group test "prefect==${{ matrix.prefect }}" ${{ matrix.extra && format('"{0}"', matrix.extra) || '' }}
+      - run: uv run --no-sync pytest
+      - name: Block type registers via the prefect.collections entry point
+        run: |
+          uv run --no-sync python -c "
+          from prefect.plugins import load_prefect_collections
+          assert 'prefect_anakin' in load_prefect_collections()
+          from prefect.blocks.core import Block
+          assert Block.get_block_class_from_key('anakin-credentials').__name__ == 'AnakinCredentials'
+          "
+
+  build:
+    name: Build and install
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - run: uv build --out-dir dist
+      - run: uvx twine check --strict dist/*
+      - name: Install the wheel
+        run: |
+          uv venv /tmp/smoke
+          uv pip install --python /tmp/smoke dist/*.whl
+          /tmp/smoke/bin/python -c "
+          import prefect_anakin
+          assert len(prefect_anakin.__all__) == 24, prefect_anakin.__all__
+          "
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 7

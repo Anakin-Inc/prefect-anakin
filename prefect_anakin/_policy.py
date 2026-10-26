@@ -1,18 +1,10 @@
-"""Financial-transaction guard for actions that can change state on a target site.
+"""Guard against payment and fund-transfer requests.
 
-Ports `anakin-mcp/src/tools/policy.ts::financialBlockReason` to Python. The
-Anthropic Connectors Directory prohibits a connector from "executing
-financial transactions or transferring assets"
-(`compliance/policies/01-software-directory-policy.md` in `anakin-mcp`), and
-`anakin-mcp` applies the same guard to its `wire_write_action`, `wire_build`,
-and `browser_task` tools — all three exist in this package too
-(`wire_write_action`, `wire_build`, `browser_task`), so they carry the same
-guard here for parity. This is defense-in-depth on top of whatever the
-Anakin API itself refuses; it is intentionally conservative and targets
-payment *completion* / fund *transfer* only (pay, checkout, purchase, place
-order, buy now, wire transfer, remit, payout, charge card) — not benign
-writes like "add to cart" or "submit a form", and it is never applied to
-read actions.
+Same rule Anakin's MCP server applies to its write tools: `wire_write_action`,
+`wire_build` and `browser_task` refuse anything that looks like it completes
+a payment or moves money (pay, checkout, purchase, place order, buy now,
+wire transfer, remit, payout, charge card). Benign writes such as "add to
+cart" or "submit a form" pass, and read actions are never checked.
 """
 
 from __future__ import annotations
@@ -33,8 +25,7 @@ def financial_block_reason(text: str) -> str | None:
 
     `text` is typically an action id + serialized params, or a goal/prompt +
     URL. Set the `ANAKIN_ALLOW_FINANCIAL=true` environment variable to
-    disable this guard (matches `anakin-mcp`'s escape hatch) — not
-    recommended for production use of this package.
+    disable this guard.
     """
     if os.environ.get("ANAKIN_ALLOW_FINANCIAL") == "true":
         return None
@@ -44,10 +35,9 @@ def financial_block_reason(text: str) -> str | None:
     haystack = re.sub(r"[_-]+", " ", text)
     if _FINANCIAL_PATTERN.search(haystack):
         return (
-            "This connector does not perform financial transactions or transfer "
-            "funds/assets, so this action was not run (Anthropic Connectors "
-            "Directory policy, mirrored from anakin-mcp/src/tools/policy.ts). Use "
-            "a read action to look up information, or complete any payment "
-            "directly on the site."
+            "prefect-anakin does not run payments or fund transfers, so this "
+            "action was not run. Use a read action to look up information, or "
+            "complete the payment directly on the site. Set "
+            "ANAKIN_ALLOW_FINANCIAL=true to turn this check off."
         )
     return None
