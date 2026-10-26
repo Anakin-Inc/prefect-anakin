@@ -1,19 +1,9 @@
-"""Internal HTTP helpers for Anakin endpoints not yet covered by `anakin-sdk` v0.1.0.
+"""Internal helpers: raw HTTP for `browser_task`, and secret redaction.
 
-`anakin-sdk`'s `anakin.Anakin` client (read directly from
-`anakin-py/src/anakin/client.py`) wraps `scrape`, `map`, `crawl`, `search`,
-`agentic_search`, `wire` (run one action), and `sessions.*` (list/create/save
-/update/delete). It does **not** wrap Wire discovery/catalog/identities/login
-/build, Website Monitoring, AI Visibility, or `browser_task` — confirmed by
-reading the module directly, not assumed. Those are real, documented REST
-endpoints per Anakin's own MCP server source (`anakin-mcp/src/client.ts`,
-`anakin-mcp/src/tools/*.ts`), so the tasks that cover them in this package
-call the API directly over `httpx` via `AnakinCredentials.get_http_client()`.
-
-This module intentionally mirrors, in miniature, the shape of
-`anakin-py/src/anakin/_http.py` and `anakin-mcp/src/client.ts` (error
-normalization, job polling) so behavior is consistent with the SDK-backed
-tasks in this same package — but it is not part of the public API.
+`anakin-sdk` 0.2 wraps every endpoint this package uses except the AI
+browser task (`POST /ai/evaluate`, polled at `GET /ai/jobs/:id`), so that
+one task calls the REST API directly with the same base URL and `X-API-Key`
+convention as the SDK. Not part of the public API.
 """
 
 from __future__ import annotations
@@ -24,26 +14,21 @@ from typing import Any
 
 import httpx
 
-# Matches anakin-mcp/src/client.ts: POLL_INTERVAL_MS=3000, POLL_MAX_ATTEMPTS=60
-# (3 minutes total).
 POLL_INTERVAL_SECONDS = 3.0
-POLL_MAX_ATTEMPTS = 60
 # Browser AI tasks are hard-capped server-side at ~330s, so the poll window
-# must outlast the longest legitimate run (anakin-mcp's
-# BROWSER_TASK_POLL_MAX_ATTEMPTS = 120, 6 minutes total).
-BROWSER_TASK_POLL_MAX_ATTEMPTS = 120
+# must outlast the longest legitimate run (6 minutes total).
+POLL_MAX_ATTEMPTS = 120
 
-_MONITOR_SECRET_KEYS = {"alertWebhookSecret"}
-_REDACTED = "[redacted — view in the Anakin dashboard]"
+# camelCase as the API returns it, snake_case as `anakin-sdk` models dump it.
+_MONITOR_SECRET_KEYS = {"alertWebhookSecret", "alert_webhook_secret"}
+_REDACTED = "[redacted: view it in the Anakin dashboard]"
 
 
 class AnakinHTTPError(RuntimeError):
     """Raised for a non-2xx response from a raw Anakin HTTP call.
 
-    Mirrors the error-shape handling in `anakin-mcp`'s `AnakinClient.toError`
-    and `anakin-py`'s `HttpClient._handle_response`: Anakin returns either a
-    flat `{"error": "msg", "code": "CODE"}` body or Wire's nested
-    `{"error": {"code": ..., "message": ..., ...}}` envelope.
+    Anakin returns either a flat `{"error": "msg", "code": "CODE"}` body or a
+    nested `{"error": {"code": ..., "message": ..., ...}}` envelope.
     """
 
     def __init__(self, method: str, path: str, response: httpx.Response) -> None:
@@ -100,13 +85,7 @@ def poll(
     max_attempts: int = POLL_MAX_ATTEMPTS,
     interval_seconds: float = POLL_INTERVAL_SECONDS,
 ) -> dict[str, Any]:
-    """Poll `GET path` until `is_terminal(body)` is true, at a fixed interval.
-
-    Matches `anakin-mcp/src/client.ts`'s `pollJob`/`aiVisibilitySearch` loop
-    (fixed-interval polling), not `anakin-py`'s exponential backoff — kept
-    simple since these endpoints have no SDK-side polling to stay consistent
-    with.
-    """
+    """Poll `GET path` until `is_terminal(body)` is true, at a fixed interval."""
     for _ in range(max_attempts):
         body = request(client, "GET", path)
         if is_terminal(body):
@@ -121,12 +100,10 @@ def poll(
 def redact_secrets(value: Any) -> Any:
     """Recursively replace known secret-bearing keys with a placeholder.
 
-    Ports `anakin-mcp/src/tools/monitor.ts::redactSecrets`. The Website
-    Monitoring API returns each monitor's `alertWebhookSecret` (an HMAC
-    signing secret) inline; a secret that enters a Prefect log or task
-    result is compromised by definition, so every raw monitor response in
-    this package is passed through this before it reaches a flow — callers
-    retrieve the real value from the Anakin dashboard instead.
+    The Website Monitoring API returns each monitor's webhook signing secret
+    inline. Prefect persists task results and may log them, so monitor
+    results are passed through this first; read the real secret in the
+    Anakin dashboard.
     """
     if isinstance(value, list):
         return [redact_secrets(v) for v in value]

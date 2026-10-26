@@ -10,7 +10,7 @@ constructs a real `httpx.Client`; that wiring is covered in
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -74,7 +74,13 @@ def test_request_raises_on_nested_wire_error_envelope() -> None:
     client = MagicMock()
     client.request.return_value = _err(
         401,
-        {"error": {"code": "AUTH_REQUIRED", "message": "connect your account", "connect_url": "https://x"}},
+        {
+            "error": {
+                "code": "AUTH_REQUIRED",
+                "message": "connect your account",
+                "connect_url": "https://x",
+            }
+        },
     )
 
     with pytest.raises(AnakinHTTPError) as exc_info:
@@ -130,9 +136,11 @@ def test_redact_secrets_replaces_webhook_secret() -> None:
     redacted = redact_secrets(value)
 
     assert redacted["id"] == "mon_1"
-    assert redacted["alertWebhookSecret"] == "[redacted — view in the Anakin dashboard]"
-    assert redacted["nested"]["alertWebhookSecret"] == "[redacted — view in the Anakin dashboard]"
-    assert redacted["list"][0]["alertWebhookSecret"] == "[redacted — view in the Anakin dashboard]"
+    assert redacted["alertWebhookSecret"] == "[redacted: view it in the Anakin dashboard]"
+    assert redacted["nested"]["alertWebhookSecret"] == "[redacted: view it in the Anakin dashboard]"
+    assert (
+        redacted["list"][0]["alertWebhookSecret"] == "[redacted: view it in the Anakin dashboard]"
+    )
     assert redacted["list"][1] == {"other": "x"}
 
 
